@@ -149,6 +149,7 @@
 
 <ul dir="rtl" style="direction: rtl; text-align: right;">
   <li>ابزار <b>Fragment + Fingerprint</b> فقط از لینک‌های <b>VLESS</b> و <b>Trojan</b> پشتیبانی می‌کند.</li>
+  <li><b>TLS الزامی است</b>: ابزار <b>Fragment + Fingerprint</b> فقط با کانفیگ‌هایی کار می‌کند که <b>TLS</b> فعال داشته باشند (امنیت <code>tls</code> یا <code>reality</code>). کانفیگ‌های غیر TLS پشتیبانی نمی‌شوند و کار نخواهند کرد.</li>
   <li>پارامترهای <b>cs</b> (Cipher Suites) و <b>fm</b> (Final Mask) فقط زمانی اضافه می‌شوند که کانفیگ از امنیت <b>tls</b> استفاده کند.</li>
   <li>کانفیگ‌های <b>SOCKS</b> و <b>HTTP</b> باید حتماً دارای <b>نام کاربری و رمز عبور</b> باشند.</li>
   <li>هسته <b>Xray</b> از کانفیگ‌های <b>raw</b> (بدون هدر TCP&rlm;) پشتیبانی نمی‌کند؛ به‌جای آن باید از TCP&rlm; با هدر http&rlm; استفاده کرد.</li>

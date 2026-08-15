@@ -78,6 +78,7 @@ This ensures that your final outgoing IP address is that of the **Chain Proxy**,
 ## ⚠️ Important Notes
 
 - The **Fragment + Fingerprint** tool supports **VLESS** and **Trojan** URLs only.
+- **TLS is required**: the **Fragment + Fingerprint** tool only works with configs that have **TLS** enabled (security `tls` or `reality`). Non-TLS configs are not supported and will not work.
 - `cs` (cipher suites) and `fm` (final mask) are only added when the config uses **tls** security.
 - **SOCKS & HTTP** configs must have **username and password** included.
 - **Xray** does not support **raw** (headerless TCP) configs — use TCP with http header type instead.
