@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chain Proxy Builder</title>
+    <title>Proxy Builder</title>
     <meta name="description"
-        content="Chain two proxy configs together — supports VLESS, VMess, Trojan, Shadowsocks, SOCKS, HTTP, SSH">
+        content="Enhance VLESS/Trojan URLs with fragment & fingerprint, or chain two proxy configs together — supports VLESS, VMess, Trojan, Shadowsocks, SOCKS, HTTP, SSH">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -24,10 +24,11 @@
         <!-- Header -->
         <header class="header">
             <div class="logo">
-                <span class="logo-icon">🔗</span>
-                <h1>Chain Proxy Builder</h1>
+                <span class="logo-icon">🧬</span>
+                <h1>Proxy Builder</h1>
             </div>
-            <p class="subtitle">Chain two proxy configs into Xray & Sing-box configurations</p>
+            <p class="subtitle">Enhance proxy URLs (fragment & fingerprint) or chain two proxy configs into Xray &
+                Sing-box configurations</p>
             <div class="protocol-badges">
                 <span class="badge badge-vless">VLESS</span>
                 <span class="badge badge-vmess">VMess</span>
@@ -39,6 +40,14 @@
             </div>
         </header>
 
+        <!-- Main Tabs -->
+        <nav class="main-tabs">
+            <button class="main-tab active" data-view="enhancer">🧬 Fragment + Fingerprint</button>
+            <button class="main-tab" data-view="chain">🔗 Chain Builder</button>
+        </nav>
+
+        <!-- ===== View: Chain Builder (existing) ===== -->
+        <div id="view-chain" style="display:none;">
         <!-- Config Inputs -->
         <div class="configs-grid">
             <!-- Config 1: Main Proxy -->
@@ -354,6 +363,119 @@
             <p>Based on <a href="https://github.com/bia-pain-bache/BPB-Worker-Panel"
                     target="_blank">BPB-Worker-Panel</a> chain proxy logic</p>
         </footer>
+        </div>
+
+        <!-- ===== View: Fragment + Fingerprint Enhancer ===== -->
+        <div id="view-enhancer">
+            <!-- Input -->
+            <div class="config-card" id="enhancer-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🧬</span>
+                        <div>
+                            <h2>Proxy URL Enhancer</h2>
+                            <p class="card-hint">Adds <code>cs</code> (cipher suites), <code>fm</code> (fragment mask)
+                                and <code>fp</code> to VLESS / Trojan URLs</p>
+                        </div>
+                    </div>
+                    <div class="card-header-right">
+                        <span class="protocol-tag" id="enhancer-protocol-tag">—</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <textarea id="enhancer-input" class="config-input"
+                        placeholder="Paste VLESS or Trojan URL here...&#10;e.g. vless://uuid@address:port?params#remark"
+                        spellcheck="false"></textarea>
+                    <button class="btn-clear" id="enhancer-clear" title="Clear">✕</button>
+                </div>
+                <div class="parsed-info" id="enhancer-parsed"></div>
+            </div>
+
+            <!-- Options -->
+            <div class="settings-card">
+                <h3 class="settings-title">⚙️ Enhancement Options</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label for="enhancer-server">Server (IP / Domain)</label>
+                        <input type="text" id="enhancer-server"
+                            placeholder="Auto-filled from URL — empty to keep original" spellcheck="false">
+                    </div>
+                    <div class="setting-item">
+                        <label for="enhancer-fp">Fingerprint (fp)</label>
+                        <select id="enhancer-fp">
+                            <option value="unsafe" selected>unsafe</option>
+                            <option value="chrome">chrome</option>
+                            <option value="firefox">firefox</option>
+                            <option value="safari">safari</option>
+                            <option value="random">random</option>
+                            <option value="none">none</option>
+                        </select>
+                    </div>
+                    <div class="setting-item setting-item-wide">
+                        <label for="enhancer-cs">Cipher Suites (cs) — empty to skip</label>
+                        <textarea id="enhancer-cs" class="setting-textarea" rows="3" spellcheck="false">TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256</textarea>
+                    </div>
+                    <div class="setting-item setting-item-wide">
+                        <label for="enhancer-fm">Final Mask (fm) — empty to skip</label>
+                        <textarea id="enhancer-fm" class="setting-textarea" rows="5" spellcheck="false">{"tcp": [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}},{"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate -->
+            <div class="generate-section">
+                <button class="btn-generate" id="btn-enhance" disabled>
+                    <span class="btn-icon">✨</span>
+                    Enhance URL
+                </button>
+                <p class="generate-hint" id="enhance-hint">Paste a VLESS or Trojan URL above to enable</p>
+            </div>
+
+            <!-- Output -->
+            <div class="output-section" id="enhancer-output-section" style="display:none;">
+                <div class="output-header">
+                    <h3>📋 Enhanced URL</h3>
+                    <div class="output-actions">
+                        <button class="btn-copy" id="btn-copy-enhancer" title="Copy to clipboard">
+                            <span class="copy-icon">📋</span> Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="output-remark" id="enhancer-output-remark"></div>
+                <pre class="output-code enhancer-output-code"><code id="enhancer-output-url"></code></pre>
+            </div>
+
+            <details class="info-section">
+                <summary>ℹ️ How the Enhancer Works</summary>
+                <div class="info-content">
+                    <p>Paste a <strong>VLESS</strong> or <strong>Trojan</strong> URL and this tool adds:</p>
+                    <ul>
+                        <li><strong>cs</strong> — TLS cipher suite list for the handshake.</li>
+                        <li><strong>fm</strong> — final mask / fragment settings (packet fragmentation for TLS
+                            handshakes).</li>
+                        <li><strong>fp</strong> — TLS fingerprint (default <code>unsafe</code>, overrides the URL's own
+                            value).</li>
+                        <li><strong>Server</strong> — IP/domain override, auto-filled from the pasted URL; empty to keep
+                            the original address.</li>
+                    </ul>
+                    <p><code>cs</code> and <code>fm</code> are only added when the config uses <strong>tls</strong>
+                        security. Clear a field to skip that parameter.</p>
+                    <h4>Client Requirements</h4>
+                    <ul>
+                        <li><strong>Windows</strong> — use <strong>v2rayN</strong> version <strong>7.24.7</strong> or
+                            higher.</li>
+                        <li><strong>Android</strong> — use <a href="https://github.com/patterniha/PattNG"
+                                target="_blank">PattNG</a> or <strong>v2rayNG</strong> version <strong>2.3.4</strong> or
+                            higher.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <footer class="footer">
+                <p>Based on <a href="https://github.com/patterniha/PattNG" target="_blank">PattNG</a> export-to-clipboard
+                    logic (cs / fm / fp injection)</p>
+            </footer>
+        </div>
     </div>
 
     <script src="script.js"></script>

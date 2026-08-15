@@ -1,16 +1,29 @@
-# Chain Proxy Builder
+# Proxy Builder
 
 🌐 **[فارسی](README-fa.md)** | [English](README.md)
 
-A powerful, standalone web application to chain two proxy configurations into a single **Xray** or **Sing-box** JSON configuration. This tool is specifically designed to help users combine multiple proxy layers for enhanced connection stability and fixed IP masking.
+A powerful, standalone web application with two tools:
+
+1. **🧬 Fragment + Fingerprint** — enhance a **VLESS** or **Trojan** URL by injecting `cs` (cipher suites), `fm` (fragment mask) and `fp` (TLS fingerprint) parameters, plus a server (IP/domain) override — producing a link ready to import into your own client.
+2. **🔗 Chain Builder** — chain two proxy configurations into a single **Xray** or **Sing-box** JSON configuration for enhanced connection stability and fixed IP masking.
+
+All processing happens in your browser. No data is sent to any server.
 
 ## 🚀 Features
 
+### 🧬 Fragment + Fingerprint
+- **Paste & Enhance**: Paste any `vless://` or `trojan://` URL and get an enhanced link with `cs`, `fm` and `fp` parameters added.
+- **Server Override**: The server (IP/domain) field is auto-filled from the pasted URL and is user-editable (supports IPv4, IPv6 and domains).
+- **Fingerprint**: Default `unsafe`, with `chrome`, `firefox`, `safari`, `random` and `none` options.
+- **TLS-aware**: `cs` and `fm` are only added when the config uses `tls` security. Clear a field to skip that parameter.
+- **One-click Copy**: Copy the enhanced URL straight to the clipboard.
+- **Protocol Support**: **VLESS** and **Trojan**.
+
+### 🔗 Chain Builder
 - **Dual Config Chaining**: Easily chain a primary proxy (e.g., Worker/CDN) with a secondary chain proxy.
 - **Protocol Support**: Supports **VLESS**, **VMess**, **Trojan**, **Shadowsocks**, **SOCKS**, **HTTP**, and **SSH**.
 - **Dual Output**: Generates both **Xray** and **Sing-box** JSON configurations.
 - **ECH Support**: Automatically parses and includes ECH config for secure connections.
-- **Client-Side Only**: All processing happens in your browser. No data is sent to any server.
 
 | Output | Client |
 |--------|--------|
@@ -22,7 +35,7 @@ A powerful, standalone web application to chain two proxy configurations into a 
 - **Nekoray**: High compatibility format optimized for **Nekoray**.
 - **Nekobox (Android)**: Optimized for Android with a **TUN inbound**, ensuring proper VPN recognition (key icon) and mobile stability.
 
-## 🔗 How it Works
+## 🔗 How the Chain Builder Works
 
 The application generates a configuration that routes your traffic in this sequence:
 
@@ -32,6 +45,17 @@ This ensures that your final outgoing IP address is that of the **Chain Proxy**,
 
 ## 🛠️ Usage
 
+### 🧬 Fragment + Fingerprint
+1. Switch to the **Fragment + Fingerprint** tab.
+2. Paste your **VLESS** or **Trojan** URL.
+3. Adjust the options if needed: server override (auto-filled from the URL), fingerprint, cipher suites, final mask.
+4. Click **"Enhance URL"** and copy the resulting link — import it into your client.
+
+#### ✅ Client Requirements
+- **Windows**: use **v2rayN** version **7.24.7** or higher.
+- **Android**: use [PattNG](https://github.com/patterniha/PattNG) or **v2rayNG** version **2.3.4** or higher.
+
+### 🔗 Chain Builder
 1. **Config 1**: Paste your first proxy URL (this can be a Cloudflare Worker, CDN, or any other proxy).
 2. **Config 2**: Paste your second proxy URL (the one you want to chain through).
    - For **SSH**, click the 🔑 SSH toggle and fill in server, port, username, and password.
@@ -43,16 +67,18 @@ This ensures that your final outgoing IP address is that of the **Chain Proxy**,
 
 | Protocol | URL Format | Notes |
 |----------|-----------|-------|
-| **VLESS** | `vless://uuid@server:port?params` | |
-| **VMess** | `vmess://base64-json` | |
-| **Trojan** | `trojan://password@server:port?params` | |
-| **Shadowsocks** | `ss://base64(method:pass)@server:port` | No transport (ws, grpc, etc.) and no TLS support |
-| **SOCKS** | `socks://user:pass@server:port` | Must include username and password |
-| **HTTP** | `http://user:pass@server:port` | Must include username and password |
-| **SSH** | 4-field input (server, port, user, password) | **Sing-box only** — not supported by Xray |
+| **VLESS** | `vless://uuid@server:port?params` | Supported by both tools |
+| **VMess** | `vmess://base64-json` | Chain Builder only |
+| **Trojan** | `trojan://password@server:port?params` | Supported by both tools |
+| **Shadowsocks** | `ss://base64(method:pass)@server:port` | Chain Builder only — no transport (ws, grpc, etc.) and no TLS support |
+| **SOCKS** | `socks://user:pass@server:port` | Chain Builder only — must include username and password |
+| **HTTP** | `http://user:pass@server:port` | Chain Builder only — must include username and password |
+| **SSH** | 4-field input (server, port, user, password) | Chain Builder only — **Sing-box only**, not supported by Xray |
 
 ## ⚠️ Important Notes
 
+- The **Fragment + Fingerprint** tool supports **VLESS** and **Trojan** URLs only.
+- `cs` (cipher suites) and `fm` (final mask) are only added when the config uses **tls** security.
 - **SOCKS & HTTP** configs must have **username and password** included.
 - **Xray** does not support **raw** (headerless TCP) configs — use TCP with http header type instead.
 - **Shadowsocks** cannot have any transport (WebSocket, gRPC, HTTPUpgrade, etc.) and cannot have TLS.
@@ -70,11 +96,12 @@ TLS, Reality, None
 
 - **HTML5**: Semantic structure.
 - **CSS3**: Custom variables, glassmorphism, and animations.
-- **JavaScript**: Core logic for URL parsing and JSON generation.
+- **JavaScript**: Core logic for URL parsing, enhancement and JSON generation.
 
 ## 🛡️ Credits
 
-This project draws inspiration and logic from the [BPB-Worker-Panel](https://github.com/bia-pain-bache/BPB-Worker-Panel) project and this [Sing-box configuration](https://gist.github.com/alireza-delavari/62e56af0d59c92b5b1798f1442f90f61).
+- The **Fragment + Fingerprint** enhancement logic (`cs` / `fm` / `fp` injection and URL export format) is based on the [PattNG](https://github.com/patterniha/PattNG) project's export-to-clipboard behavior.
+- The **Chain Builder** draws inspiration and logic from the [BPB-Worker-Panel](https://github.com/bia-pain-bache/BPB-Worker-Panel) project and this [Sing-box configuration](https://gist.github.com/alireza-delavari/62e56af0d59c92b5b1798f1442f90f61).
 
 ---
 Built with ❤️ for the privacy community.

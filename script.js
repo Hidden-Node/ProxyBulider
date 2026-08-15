@@ -1,6 +1,7 @@
 // ===================================================================
-// Chain Proxy Builder — script.js
-// Parses two proxy URLs and chains them into Xray & Sing-box configs
+// Proxy Builder — script.js
+// Enhances proxy URLs (fragment & fingerprint) and chains two proxy
+// URLs into Xray & Sing-box configs
 // ===================================================================
 
 (function () {
@@ -63,10 +64,33 @@
     const panelSingbox = document.getElementById('panel-singbox');
     const panelSingboxClient = document.getElementById('panel-singbox-client');
 
+    // Main tab elements
+    const mainTabs = document.querySelectorAll('.main-tab');
+    const viewChain = document.getElementById('view-chain');
+    const viewEnhancer = document.getElementById('view-enhancer');
+
+    // Enhancer elements
+    const enhancerInput = document.getElementById('enhancer-input');
+    const enhancerClear = document.getElementById('enhancer-clear');
+    const enhancerParsed = document.getElementById('enhancer-parsed');
+    const enhancerProtocolTag = document.getElementById('enhancer-protocol-tag');
+    const enhancerFp = document.getElementById('enhancer-fp');
+    const enhancerCs = document.getElementById('enhancer-cs');
+    const enhancerFm = document.getElementById('enhancer-fm');
+    const enhancerServer = document.getElementById('enhancer-server');
+    const btnEnhance = document.getElementById('btn-enhance');
+    const enhanceHint = document.getElementById('enhance-hint');
+    const enhancerOutputSection = document.getElementById('enhancer-output-section');
+    const enhancerOutputUrl = document.getElementById('enhancer-output-url');
+    const enhancerOutputRemark = document.getElementById('enhancer-output-remark');
+    const btnCopyEnhancer = document.getElementById('btn-copy-enhancer');
+    const enhancerCard = document.getElementById('enhancer-card');
+
     let parsedConfig1 = null;
     let parsedConfig2 = null;
     let sshMode1 = false;
     let sshMode2 = false;
+    let lastAutoServer = '';
 
     // ===== Base64 Helpers =====
     function safeAtob(str) {
@@ -342,6 +366,128 @@
         } catch (e) {
             return { error: 'Failed to parse HTTP URL: ' + e.message };
         }
+    }
+
+    // ===== URL Enhancer (Fragment + Fingerprint) =====
+
+    function enhanceURL(raw) {
+        const url = raw.trim();
+        if (!url) return { error: 'No URL provided' };
+        if (!url.startsWith('vless://') && !url.startsWith('trojan://')) {
+            return { error: 'Only VLESS and Trojan URLs are supported' };
+        }
+
+        let u;
+        try {
+            u = new URL(url);
+        } catch (e) {
+            return { error: 'Failed to parse URL: ' + e.message };
+        }
+
+        const params = u.searchParams;
+        const security = params.get('security') || 'none';
+
+        // Server override — auto-filled from URL, user-editable, empty keeps original
+        const server = enhancerServer.value.trim();
+        if (server) {
+            const host = server.includes(':') && !server.startsWith('[')
+                ? '[' + server + ']'
+                : server;
+            try {
+                u.hostname = host;
+            } catch (e) {
+                return { error: 'Invalid server address: ' + e.message };
+            }
+        }
+
+        // Fingerprint — always applied when selected value is non-empty
+        const fp = enhancerFp.value.trim();
+        if (fp && fp !== 'none') {
+            params.set('fp', fp);
+        }
+
+        // Cipher suites & fragment mask — only meaningful with TLS
+        if (security === 'tls') {
+            const cs = enhancerCs.value.trim();
+            if (cs) {
+                params.set('cs', cs);
+            }
+            const fm = enhancerFm.value.trim();
+            if (fm) {
+                params.set('fm', fm);
+            }
+        }
+
+        // URLSearchParams encodes spaces as '+', but v2ray-style clients use '%20'
+        u.search = u.search.replace(/\+/g, '%20');
+
+        return { url: u.toString() };
+    }
+
+    function onEnhancerInput() {
+        const val = enhancerInput.value.trim();
+        let parsed = null;
+        let unsupported = false;
+        if (val) {
+            parsed = parseProxyURL(val);
+            if (parsed && parsed.error) {
+                parsed = null;
+            }
+            if (parsed && parsed.protocol !== 'vless' && parsed.protocol !== 'trojan') {
+                unsupported = true;
+                parsed = null;
+            }
+        }
+
+        // Auto-fill the server field from the URL, unless the user typed a custom value
+        if (parsed) {
+            const current = enhancerServer.value.trim();
+            if (!current || current === lastAutoServer || current === parsed.server) {
+                enhancerServer.value = parsed.server || '';
+                lastAutoServer = parsed.server || '';
+            }
+        } else if (!enhancerServer.value.trim()) {
+            lastAutoServer = '';
+        }
+
+        renderParsedInfo(
+            parsed
+                ? parsed
+                : (val ? { error: unsupported ? 'Only VLESS and Trojan URLs are supported' : 'Failed to parse URL' } : null),
+            enhancerParsed
+        );
+        updateProtocolTag(enhancerProtocolTag, parsed);
+
+        enhancerCard.classList.remove('valid', 'invalid');
+        if (val && parsed) {
+            enhancerCard.classList.add('valid');
+        } else if (val) {
+            enhancerCard.classList.add('invalid');
+        }
+
+        btnEnhance.disabled = !parsed;
+        enhanceHint.textContent = parsed
+            ? 'Ready to enhance!'
+            : 'Paste a VLESS or Trojan URL above to enable';
+        enhanceHint.style.color = parsed ? '#4cdf86' : '';
+    }
+
+    function onEnhance() {
+        const result = enhanceURL(enhancerInput.value);
+        if (!result || result.error) {
+            enhancerOutputSection.style.display = 'none';
+            return;
+        }
+
+        const parsed = parseProxyURL(enhancerInput.value);
+        const remark = parsed && parsed.remark
+            ? `✨ ${parsed.protocol.toUpperCase()} ${parsed.server}:${parsed.port} | enhanced`
+            : '✨ Enhanced';
+
+        enhancerOutputRemark.textContent = remark;
+        enhancerOutputUrl.textContent = result.url;
+        enhancerOutputSection.style.display = 'block';
+        enhancerOutputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // ===== Xray Outbound Builders =====
@@ -1474,6 +1620,19 @@
         URL.revokeObjectURL(url);
     }
 
+    // ===== Main Tab switching =====
+    function switchMainTab(viewName) {
+        mainTabs.forEach(t => {
+            t.classList.toggle('active', t.dataset.view === viewName);
+        });
+        viewChain.style.display = viewName === 'chain' ? '' : 'none';
+        viewEnhancer.style.display = viewName === 'enhancer' ? '' : 'none';
+    }
+
+    mainTabs.forEach(tab => {
+        tab.addEventListener('click', () => switchMainTab(tab.dataset.view));
+    });
+
     // ===== Tab switching =====
     function switchTab(tabName) {
         [tabXray, tabSingbox].forEach(t => t.classList.remove('active'));
@@ -1631,6 +1790,27 @@
                 target.type = 'password';
                 btn.textContent = '👁️';
             }
+        });
+    });
+
+    // ===== Enhancer events =====
+    enhancerInput.addEventListener('input', onEnhancerInput);
+    enhancerInput.addEventListener('paste', () => setTimeout(onEnhancerInput, 50));
+    enhancerClear.addEventListener('click', () => {
+        enhancerInput.value = '';
+        onEnhancerInput();
+    });
+    btnEnhance.addEventListener('click', onEnhance);
+    btnCopyEnhancer.addEventListener('click', () => {
+        const text = enhancerOutputUrl.textContent;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            btnCopyEnhancer.classList.add('copied');
+            btnCopyEnhancer.innerHTML = '<span class="copy-icon">✅</span> Copied!';
+            setTimeout(() => {
+                btnCopyEnhancer.classList.remove('copied');
+                btnCopyEnhancer.innerHTML = '<span class="copy-icon">📋</span> Copy';
+            }, 2000);
         });
     });
 })();

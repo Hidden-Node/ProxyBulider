@@ -222,6 +222,47 @@ body {
     text-transform: none;
 }
 
+/* ===== Main Tabs ===== */
+.main-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: rgba(10, 10, 20, 0.5);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.main-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.main-tab:hover {
+    color: var(--text-secondary);
+    background: rgba(124, 92, 255, 0.05);
+}
+
+.main-tab.active {
+    background: rgba(124, 92, 255, 0.15);
+    color: var(--accent-1);
+    border-color: rgba(124, 92, 255, 0.25);
+    box-shadow: 0 2px 12px rgba(124, 92, 255, 0.15);
+}
+
 /* ===== Config Cards ===== */
 .configs-grid {
     display: grid;
@@ -690,6 +731,34 @@ body {
 .setting-item select option {
     background: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+.setting-item-wide {
+    grid-column: 1 / -1;
+}
+
+.setting-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    transition: var(--transition);
+}
+
+.setting-textarea:focus {
+    border-color: var(--accent-1);
+}
+
+.enhancer-output-code {
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 
 /* ===== Generate Button ===== */

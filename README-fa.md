@@ -1,14 +1,33 @@
-# Chain Proxy Builder 
+# Proxy Builder
 
-یک وب‌اپلیکیشن قدرتمند و مستقل برای ترکیب دو کانفیگ پراکسی به یک کانفیگ واحد **Xray** یا **Sing-box**. این ابزار به‌طور ویژه طراحی شده تا با ترکیب چندین لایه پراکسی، پایداری اتصال را افزایش داده و امکان استفاده از آی‌پی ثابت را فراهم کند.
+یک وب‌اپلیکیشن قدرتمند و مستقل با دو ابزار:
+
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li><b>🧬 Fragment + Fingerprint</b> — ارتقای لینک <b>VLESS</b> یا <b>Trojan</b> با افزودن پارامترهای <code>cs</code> (لیست Cipher Suites)، <code>fm</code> (Fragment Mask) و <code>fp</code> (اثر انگشت TLS) به‌همراه قابلیت تغییر سرور (IP/دامنه) — خروجی لینکی آماده برای وارد کردن در کلاینت خودتان.</li>
+  <li><b>🔗 Chain Builder</b> — ترکیب دو کانفیگ پراکسی به یک کانفیگ واحد <b>Xray</b> یا <b>Sing-box</b> برای افزایش پایداری اتصال و استفاده از آی‌پی ثابت.</li>
+</ul>
+
+تمام پردازش‌ها درون مرورگر شما انجام می‌شود. هیچ داده‌ای به سروری ارسال نمی‌گردد.
 
 ## 🚀 ویژگی‌ها
 
-- **ترکیب دوگانه کانفیگ**: به‌راحتی یک پراکسی اولیه (مانند Worker/CDN) را با یک پراکسی زنجیره‌ای (Chain Proxy) ترکیب کنید.
-- **پشتیبانی از پروتکل‌ها**: پشتیبانی از **VLESS**، **VMess**، **Trojan**، **Shadowsocks**، **SOCKS**، **HTTP** و **SSH**.
-- **خروجی دوگانه**: تولید کانفیگ JSON برای هر دو کلاینت **Xray** و **Sing-box**.
-- **پشتیبانی از ECH**: استخراج و افزودن خودکار تنظیمات ECH برای اتصالی امن‌تر.
-- **پردازش سمت کاربر**: تمام پردازش‌ها درون مرورگر شما انجام می‌شود. هیچ داده‌ای به سروری ارسال نمی‌گردد.
+### 🧬 Fragment + Fingerprint
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li><b>جای‌گذاری و ارتقا</b>: لینک <code>vless://</code> یا <code>trojan://</code> را جای‌گذاری کنید و لینکی ارتقایافته با پارامترهای <code>cs</code>، <code>fm</code> و <code>fp</code> دریافت کنید.</li>
+  <li><b>تغییر سرور</b>: فیلد سرور (IP/دامنه) به‌صورت خودکار از همان URL استخراج می‌شود و برای کاربر قابل ویرایش است (پشتیبانی از IPv4، IPv6 و دامنه).</li>
+  <li><b>اثر انگشت (Fingerprint)</b>: پیش‌فرض <code>unsafe</code> با گزینه‌های <code>chrome</code>، <code>firefox</code>، <code>safari</code>، <code>random</code> و <code>none</code>.</li>
+  <li><b>آگاه از TLS</b>: پارامترهای <code>cs</code> و <code>fm</code> فقط زمانی اضافه می‌شوند که کانفیگ از امنیت <code>tls</code> استفاده کند. با خالی کردن هر فیلد، آن پارامتر حذف می‌شود.</li>
+  <li><b>کپی با یک کلیک</b>: کپی مستقیم لینک ارتقایافته در کلیپ‌بورد.</li>
+  <li><b>پشتیبانی از پروتکل‌ها</b>: <b>VLESS</b> و <b>Trojan</b>.</li>
+</ul>
+
+### 🔗 Chain Builder
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li><b>ترکیب دوگانه کانفیگ</b>: به‌راحتی یک پراکسی اولیه (مانند Worker/CDN) را با یک پراکسی زنجیره‌ای (Chain Proxy) ترکیب کنید.</li>
+  <li><b>پشتیبانی از پروتکل‌ها</b>: پشتیبانی از <b>VLESS</b>، <b>VMess</b>، <b>Trojan</b>، <b>Shadowsocks</b>، <b>SOCKS</b>، <b>HTTP</b> و <b>SSH</b>.</li>
+  <li><b>خروجی دوگانه</b>: تولید کانفیگ JSON برای هر دو کلاینت <b>Xray</b> و <b>Sing-box</b>.</li>
+  <li><b>پشتیبانی از ECH</b>: استخراج و افزودن خودکار تنظیمات ECH برای اتصالی امن‌تر.</li>
+</ul>
 
 ## 📦 فرمت‌های خروجی
 
@@ -38,7 +57,7 @@
   <li><b>Nekobox (Android)</b>: مخصوص اندروید؛ دارای <b>رابط مجازی TUN</b> برای شناسایی صحیح VPN در سیستم‌عامل (نمایش آیکون کلید) و پایداری بیشتر در شبکه موبایل.</li>
 </ul>
 
-## 🔗 شیوه کار خروجی‌ها
+## 🔗 شیوه کار Chain Builder
 
 این ابزار کانفیگی تولید می‌کند که ترافیک شما را به این ترتیب مسیریابی می‌کند:
 
@@ -50,6 +69,21 @@
 
 ## 🛠️ نحوه استفاده
 
+### 🧬 Fragment + Fingerprint
+<ol dir="rtl" style="direction: rtl; text-align: right;">
+  <li>به تب <b>Fragment + Fingerprint</b> بروید.</li>
+  <li>لینک <b>VLESS</b> یا <b>Trojan</b> خود را جای‌گذاری کنید.</li>
+  <li>در صورت نیاز گزینه‌ها را تنظیم کنید: تغییر سرور (به‌صورت خودکار از URL پر می‌شود)، اثر انگشت، لیست Cipher Suites و Final Mask.</li>
+  <li>روی <b>«Enhance URL»</b> کلیک کنید و لینک حاصل را کپی کرده و در کلاینت خود وارد کنید.</li>
+</ol>
+
+#### ✅ الزامات کلاینت
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li><b>ویندوز</b>: حتماً از نرم‌افزار <b>v2rayN</b> نسخه <b>7.24.7</b> یا بالاتر استفاده کنید.</li>
+  <li><b>اندروید</b>: از نرم‌افزار <a href="https://github.com/patterniha/PattNG">PattNG</a> یا <b>v2rayNG</b> نسخه <b>2.3.4</b> یا بالاتر استفاده کنید.</li>
+</ul>
+
+### 🔗 Chain Builder
 <ol dir="rtl" style="direction: rtl; text-align: right;">
   <li><b>کانفیگ ۱</b>: لینک پراکسی اول خود را جای‌گذاری کنید (این کانفیگ می‌تواند یک Cloudflare Worker&rlm;، CDN&rlm; یا هر پراکسی مشابهی باشد).</li>
   <li><b>کانفیگ ۲</b>: لینک پراکسی دوم که می‌خواهید ترافیک از آن عبور کند، جای‌گذاری نمایید.
@@ -76,37 +110,37 @@
     <tr>
       <td><b>VLESS</b></td>
       <td dir="ltr" align="left"><code>vless://uuid@server:port?params</code></td>
-      <td>پشتیبانی کامل</td>
+      <td>پشتیبانی در هر دو ابزار</td>
     </tr>
     <tr>
       <td><b>VMess</b></td>
       <td dir="ltr" align="left"><code>vmess://base64-json</code></td>
-      <td>پشتیبانی کامل</td>
+      <td>فقط Chain Builder</td>
     </tr>
     <tr>
       <td><b>Trojan</b></td>
       <td dir="ltr" align="left"><code>trojan://password@server:port?params</code></td>
-      <td>پشتیبانی کامل</td>
+      <td>پشتیبانی در هر دو ابزار</td>
     </tr>
     <tr>
       <td><b>Shadowsocks</b></td>
       <td dir="ltr" align="left"><code>ss://base64(method:pass)@server:port</code></td>
-      <td>عدم پشتیبانی از transport&rlm; (مانند ws&rlm;، grpc&rlm; و غیره) و همچنین فاقد پشتیبانی از TLS&rlm;.</td>
+      <td>فقط Chain Builder — عدم پشتیبانی از transport&rlm; (مانند ws&rlm;، grpc&rlm; و غیره) و همچنین فاقد پشتیبانی از TLS&rlm;.</td>
     </tr>
     <tr>
       <td><b>SOCKS</b></td>
       <td dir="ltr" align="left"><code>socks://user:pass@server:port</code></td>
-      <td>باید شامل نام کاربری و رمز عبور باشد.</td>
+      <td>فقط Chain Builder — باید شامل نام کاربری و رمز عبور باشد.</td>
     </tr>
     <tr>
       <td><b>HTTP</b></td>
       <td dir="ltr" align="left"><code>http://user:pass@server:port</code></td>
-      <td>باید شامل نام کاربری و رمز عبور باشد.</td>
+      <td>فقط Chain Builder — باید شامل نام کاربری و رمز عبور باشد.</td>
     </tr>
     <tr>
       <td><b>SSH</b></td>
       <td>دارای ۴ فیلد (سرور، پورت، نام کاربری، رمز عبور)</td>
-      <td><b>فقط برای Sing-box&rlm;</b> — توسط Xray&rlm; پشتیبانی نمی‌شود.</td>
+      <td>فقط Chain Builder — <b>فقط برای Sing-box&rlm;</b> — توسط Xray&rlm; پشتیبانی نمی‌شود.</td>
     </tr>
   </tbody>
 </table>
@@ -114,6 +148,8 @@
 ## ⚠️ نکات مهم
 
 <ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li>ابزار <b>Fragment + Fingerprint</b> فقط از لینک‌های <b>VLESS</b> و <b>Trojan</b> پشتیبانی می‌کند.</li>
+  <li>پارامترهای <b>cs</b> (Cipher Suites) و <b>fm</b> (Final Mask) فقط زمانی اضافه می‌شوند که کانفیگ از امنیت <b>tls</b> استفاده کند.</li>
   <li>کانفیگ‌های <b>SOCKS</b> و <b>HTTP</b> باید حتماً دارای <b>نام کاربری و رمز عبور</b> باشند.</li>
   <li>هسته <b>Xray</b> از کانفیگ‌های <b>raw</b> (بدون هدر TCP&rlm;) پشتیبانی نمی‌کند؛ به‌جای آن باید از TCP&rlm; با هدر http&rlm; استفاده کرد.</li>
   <li>کانفیگ‌های <b>Shadowsocks</b> نمی‌توانند هیچ نوع transport&rlm; (مانند WebSocket&rlm;، gRPC&rlm;، HTTPUpgrade&rlm; و غیره) داشته باشند و فاقد قابلیت TLS&rlm; هستند.</li>
@@ -128,10 +164,20 @@ TCP، TCP (http header)، WebSocket، gRPC، HTTPUpgrade
 
 TLS، Reality، None
 
-## 🛡️ منابع الهام‌بخش (Credits)
+## 📦 تکنولوژی‌های استفاده‌شده
 
-این پروژه از منطق و ساختار پروژه متن‌باز [BPB-Worker-Panel](https://github.com/bia-pain-bache/BPB-Worker-Panel) و این [ تنظیمات Sing-box](https://gist.github.com/alireza-delavari/62e56af0d59c92b5b1798f1442f90f61) ایده گرفته است.
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li><b>HTML5</b>: ساختار معنایی.</li>
+  <li><b>CSS3</b>: متغیرهای سفارشی، افکت‌های شیشه‌ای (Glassmorphism) و انیمیشن‌ها.</li>
+  <li><b>JavaScript</b>: منطق اصلی برای پارس لینک، ارتقای کانفیگ و تولید JSON.</li>
+</ul>
+
+## 🛡️ کردیت‌ها (Credits)
+
+<ul dir="rtl" style="direction: rtl; text-align: right;">
+  <li>منطق ارتقای <b>Fragment + Fingerprint</b> (افزودن پارامترهای <code>cs</code> / <code>fm</code> / <code>fp</code> و فرمت خروجی لینک) بر اساس رفتار «Export to Clipboard» پروژه‌ی <a href="https://github.com/patterniha/PattNG">PattNG</a> طراحی شده است.</li>
+  <li>ابزار <b>Chain Builder</b> از منطق و ساختار پروژه متن‌باز <a href="https://github.com/bia-pain-bache/BPB-Worker-Panel">BPB-Worker-Panel</a> و این <a href="https://gist.github.com/alireza-delavari/62e56af0d59c92b5b1798f1442f90f61">تنظیمات Sing-box</a> ایده گرفته است.</li>
+</ul>
 
 ---
 توسعه‌یافته با ❤️ برای حریم خصوصی شما.
-
