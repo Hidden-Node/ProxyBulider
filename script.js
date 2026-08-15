@@ -1627,11 +1627,18 @@
         });
         viewChain.style.display = viewName === 'chain' ? '' : 'none';
         viewEnhancer.style.display = viewName === 'enhancer' ? '' : 'none';
+        document.querySelectorAll('.protocol-badges .badge').forEach(badge => {
+            const show = viewName === 'chain' || ['vless', 'trojan'].includes(badge.dataset.protocol);
+            badge.style.display = show ? '' : 'none';
+        });
     }
 
     mainTabs.forEach(tab => {
         tab.addEventListener('click', () => switchMainTab(tab.dataset.view));
     });
+
+    // Apply badge visibility for the initial view (enhancer is active by default)
+    switchMainTab('enhancer');
 
     // ===== Tab switching =====
     function switchTab(tabName) {
