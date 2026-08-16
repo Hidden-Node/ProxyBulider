@@ -467,13 +467,22 @@
             });
         }
 
-        // Auto-fill the server field from the first parsed URL
-        if (parsedList.length > 0) {
+        // Auto-fill the server field from the URL — only for a single config.
+        // With multiple configs, auto-filling from the first URL would silently
+        // override every config's server with the first one's. A user-typed
+        // custom value is kept: it acts as a deliberate override for all configs.
+        if (parsedList.length === 1) {
             const firstServer = parsedList[0].server || '';
             const current = enhancerServer.value.trim();
             if (!current || current === lastAutoServer || current === firstServer) {
                 enhancerServer.value = firstServer;
                 lastAutoServer = firstServer;
+            }
+        } else if (parsedList.length > 1) {
+            const current = enhancerServer.value.trim();
+            if (!current || current === lastAutoServer) {
+                enhancerServer.value = '';
+                lastAutoServer = '';
             }
         } else if (!enhancerServer.value.trim()) {
             lastAutoServer = '';
