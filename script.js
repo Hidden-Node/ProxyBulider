@@ -117,7 +117,15 @@
     }
 
     // ===== URL Parser =====
-    function parseProxyURL(raw) {
+    function extractLines(raw) {
+        if (!raw) return [];
+        return raw
+            .split(/[\r\n]+/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+    }
+
+    function parseProxyURLSingle(raw) {
         const url = raw.trim();
         if (!url) return null;
 
@@ -136,6 +144,19 @@
         } catch { }
 
         return { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks, http' };
+    }
+
+    function parseProxyURL(raw) {
+        const lines = extractLines(raw);
+        if (lines.length === 0) return null;
+        if (lines.length === 1) return parseProxyURLSingle(lines[0]);
+
+        const parsedList = lines.map(line => parseProxyURLSingle(line));
+        const validList = parsedList.filter(p => p && !p.error);
+        if (validList.length > 0) {
+            return validList;
+        }
+        return parsedList[0] || { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks, http' };
     }
 
     // ===== SSH Parser (reads from form fields) =====
@@ -426,66 +447,114 @@
 
     function onEnhancerInput() {
         const val = enhancerInput.value.trim();
-        let parsed = null;
-        let unsupported = false;
-        if (val) {
-            parsed = parseProxyURL(val);
-            if (parsed && parsed.error) {
-                parsed = null;
-            }
-            if (parsed && parsed.protocol !== 'vless' && parsed.protocol !== 'trojan') {
-                unsupported = true;
-                parsed = null;
-            }
+        const lines = extractLines(val);
+        let parsedList = [];
+        let unsupportedCount = 0;
+        let invalidCount = 0;
+
+        if (lines.length > 0) {
+            lines.forEach(line => {
+                const p = parseProxyURLSingle(line);
+                if (p && !p.error) {
+                    if (p.protocol === 'vless' || p.protocol === 'trojan') {
+                        parsedList.push(p);
+                    } else {
+                        unsupportedCount++;
+                    }
+                } else {
+                    invalidCount++;
+                }
+            });
         }
 
-        // Auto-fill the server field from the URL, unless the user typed a custom value
-        if (parsed) {
+        // Auto-fill the server field from the first parsed URL
+        if (parsedList.length > 0) {
+            const firstServer = parsedList[0].server || '';
             const current = enhancerServer.value.trim();
-            if (!current || current === lastAutoServer || current === parsed.server) {
-                enhancerServer.value = parsed.server || '';
-                lastAutoServer = parsed.server || '';
+            if (!current || current === lastAutoServer || current === firstServer) {
+                enhancerServer.value = firstServer;
+                lastAutoServer = firstServer;
             }
         } else if (!enhancerServer.value.trim()) {
             lastAutoServer = '';
         }
 
-        renderParsedInfo(
-            parsed
-                ? parsed
-                : (val ? { error: unsupported ? 'Only VLESS and Trojan URLs are supported' : 'Failed to parse URL' } : null),
-            enhancerParsed
-        );
-        updateProtocolTag(enhancerProtocolTag, parsed);
+        if (lines.length > 0) {
+            if (parsedList.length > 0) {
+                renderParsedInfo(parsedList.length === 1 ? parsedList[0] : parsedList, enhancerParsed);
+                const protocols = Array.from(new Set(parsedList.map(p => p.protocol)));
+                if (protocols.length === 1) {
+                    updateProtocolTag(enhancerProtocolTag, parsedList[0]);
+                } else {
+                    enhancerProtocolTag.textContent = 'MULTI';
+                    enhancerProtocolTag.classList.add('active');
+                    enhancerProtocolTag.style.color = '#7c5cff';
+                    enhancerProtocolTag.style.borderColor = '#7c5cff4d';
+                    enhancerProtocolTag.style.background = '#7c5cff1a';
+                }
+            } else {
+                renderParsedInfo({
+                    error: unsupportedCount > 0
+                        ? 'Only VLESS and Trojan URLs are supported'
+                        : 'Failed to parse URL'
+                }, enhancerParsed);
+                updateProtocolTag(enhancerProtocolTag, null);
+            }
+        } else {
+            renderParsedInfo(null, enhancerParsed);
+            updateProtocolTag(enhancerProtocolTag, null);
+        }
 
         enhancerCard.classList.remove('valid', 'invalid');
-        if (val && parsed) {
+        if (lines.length > 0 && parsedList.length > 0) {
             enhancerCard.classList.add('valid');
-        } else if (val) {
+        } else if (lines.length > 0) {
             enhancerCard.classList.add('invalid');
         }
 
-        btnEnhance.disabled = !parsed;
-        enhanceHint.textContent = parsed
-            ? 'Ready to enhance!'
-            : 'Paste a VLESS or Trojan URL above to enable';
-        enhanceHint.style.color = parsed ? '#4cdf86' : '';
+        const count = parsedList.length;
+        btnEnhance.disabled = count === 0;
+        btnEnhance.innerHTML = `<span class="btn-icon">✨</span> Enhance ${count > 1 ? count + ' URLs' : 'URL'}`;
+        enhanceHint.textContent = count > 0
+            ? `Ready to enhance ${count} URL${count > 1 ? 's' : ''}!`
+            : 'Paste VLESS or Trojan URL(s) above to enable';
+        enhanceHint.style.color = count > 0 ? '#4cdf86' : '';
     }
 
     function onEnhance() {
-        const result = enhanceURL(enhancerInput.value);
-        if (!result || result.error) {
+        const val = enhancerInput.value.trim();
+        const lines = extractLines(val);
+        if (lines.length === 0) {
             enhancerOutputSection.style.display = 'none';
             return;
         }
 
-        const parsed = parseProxyURL(enhancerInput.value);
-        const remark = parsed && parsed.remark
-            ? `✨ ${parsed.protocol.toUpperCase()} ${parsed.server}:${parsed.port} | enhanced`
-            : '✨ Enhanced';
+        const enhancedUrls = [];
+        lines.forEach(line => {
+            const p = parseProxyURLSingle(line);
+            if (p && !p.error && (p.protocol === 'vless' || p.protocol === 'trojan')) {
+                const res = enhanceURL(line);
+                if (res && res.url) {
+                    enhancedUrls.push(res.url);
+                }
+            }
+        });
+
+        if (enhancedUrls.length === 0) {
+            enhancerOutputSection.style.display = 'none';
+            return;
+        }
+
+        const count = enhancedUrls.length;
+        const firstParsed = parseProxyURLSingle(lines[0]);
+        const remark = count === 1
+            ? (firstParsed && firstParsed.remark
+                ? `✨ ${firstParsed.protocol.toUpperCase()} ${firstParsed.server}:${firstParsed.port} | enhanced`
+                : '✨ Enhanced')
+            : `✨ Enhanced ${count} URLs`;
 
         enhancerOutputRemark.textContent = remark;
-        enhancerOutputUrl.textContent = result.url;
+        enhancerOutputUrl.textContent = enhancedUrls.join('\n\n');
         enhancerOutputSection.style.display = 'block';
         enhancerOutputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1379,6 +1448,33 @@
             return;
         }
 
+        if (Array.isArray(params)) {
+            if (params.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            if (params.length === 1) {
+                renderParsedInfo(params[0], container);
+                return;
+            }
+
+            const rows = [];
+            rows.push(['Loaded Configs', `Found ${params.length} URLs`]);
+            params.forEach((cfg, i) => {
+                const label = `#${i + 1} ${cfg.protocol ? cfg.protocol.toUpperCase() : ''}`;
+                const val = `${cfg.server || ''}:${cfg.port || ''}${cfg.remark ? ' (' + truncateStr(cfg.remark, 30) + ')' : ''}`;
+                rows.push([label, val]);
+            });
+
+            container.innerHTML = rows.map(([label, value]) =>
+                `<div class="info-row">
+                    <span class="info-label">${label}</span>
+                    <span class="info-value">${escapeHtml(String(value))}</span>
+                </div>`
+            ).join('');
+            return;
+        }
+
         const rows = [];
         rows.push(['Protocol', params.protocol.toUpperCase()]);
         rows.push(['Server', params.server]);
@@ -1477,14 +1573,21 @@
             parsed = val ? parseProxyURL(val) : null;
         }
 
+        let singleConfig = null;
+        if (Array.isArray(parsed)) {
+            singleConfig = parsed[0];
+        } else if (parsed && !parsed.error) {
+            singleConfig = parsed;
+        }
+
         if (isConfig1) {
-            parsedConfig1 = parsed && !parsed.error ? parsed : null;
+            parsedConfig1 = singleConfig;
         } else {
-            parsedConfig2 = parsed && !parsed.error ? parsed : null;
+            parsedConfig2 = singleConfig;
         }
 
         renderParsedInfo(parsed, parsedContainer);
-        updateProtocolTag(protocolTag, parsed);
+        updateProtocolTag(protocolTag, singleConfig || (parsed && !Array.isArray(parsed) ? parsed : null));
 
         // For SSH mode, we also consider the card valid if server is filled
         card.classList.remove('valid', 'invalid');
@@ -1500,8 +1603,10 @@
             }
         } else {
             const val = inputEl.value.trim();
-            if (val && parsed) {
-                card.classList.add(parsed.error ? 'invalid' : 'valid');
+            if (val && (singleConfig || (parsed && !parsed.error))) {
+                card.classList.add('valid');
+            } else if (val) {
+                card.classList.add('invalid');
             }
         }
 

@@ -375,7 +375,7 @@
                         <div>
                             <h2>Proxy URL Enhancer</h2>
                             <p class="card-hint">Adds <code>cs</code> (cipher suites), <code>fm</code> (fragment mask)
-                                and <code>fp</code> to VLESS / Trojan URLs</p>
+                                and <code>fp</code> to VLESS / Trojan URLs (supports single or multiple URLs)</p>
                         </div>
                     </div>
                     <div class="card-header-right">
@@ -384,7 +384,7 @@
                 </div>
                 <div class="input-group">
                     <textarea id="enhancer-input" class="config-input"
-                        placeholder="Paste VLESS or Trojan URL here...&#10;e.g. vless://uuid@address:port?params#remark"
+                        placeholder="Paste VLESS or Trojan URL(s) here (one per line)...&#10;e.g. vless://uuid@address:port?params#remark"
                         spellcheck="false"></textarea>
                     <button class="btn-clear" id="enhancer-clear" title="Clear">✕</button>
                 </div>
@@ -428,13 +428,13 @@
                     <span class="btn-icon">✨</span>
                     Enhance URL
                 </button>
-                <p class="generate-hint" id="enhance-hint">Paste a VLESS or Trojan URL above to enable</p>
+                <p class="generate-hint" id="enhance-hint">Paste VLESS or Trojan URL(s) above to enable</p>
             </div>
 
             <!-- Output -->
             <div class="output-section" id="enhancer-output-section" style="display:none;">
                 <div class="output-header">
-                    <h3>📋 Enhanced URL</h3>
+                    <h3>📋 Enhanced URL(s)</h3>
                     <div class="output-actions">
                         <button class="btn-copy" id="btn-copy-enhancer" title="Copy to clipboard">
                             <span class="copy-icon">📋</span> Copy
@@ -448,7 +448,7 @@
             <details class="info-section">
                 <summary>ℹ️ How the Enhancer Works</summary>
                 <div class="info-content">
-                    <p>Paste a <strong>VLESS</strong> or <strong>Trojan</strong> URL and this tool adds:</p>
+                    <p>Paste <strong>VLESS</strong> or <strong>Trojan</strong> URL(s) (one per line) and this tool adds:</p>
                     <ul>
                         <li><strong>cs</strong> — TLS cipher suite list for the handshake.</li>
                         <li><strong>fm</strong> — final mask / fragment settings (packet fragmentation for TLS
