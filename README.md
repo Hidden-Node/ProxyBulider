@@ -12,8 +12,9 @@ All processing happens in your browser. No data is sent to any server.
 ## 🚀 Features
 
 ### 🧬 Fragment + Fingerprint
-- **Paste & Enhance**: Paste any `vless://` or `trojan://` URL and get an enhanced link with `cs`, `fm` and `fp` parameters added.
-- **Server Override**: The server (IP/domain) field is auto-filled from the pasted URL and is user-editable (supports IPv4, IPv6 and domains).
+- **Paste & Enhance**: Paste single or multiple `vless://` or `trojan://` URLs (one per line) and get enhanced links with `cs`, `fm` and `fp` parameters added.
+- **Multi-Config Support**: Paste bulk proxy URL lists to parse, validate, and batch enhance all URLs cleanly without remark collision.
+- **Server Override**: The server (IP/domain) field is auto-filled from the URL for a single config and is user-editable. With multiple configs the field stays empty and only applies to all configs if you type a custom value (supports IPv4, IPv6 and domains).
 - **Fingerprint**: Default `unsafe`, with `chrome`, `firefox`, `safari`, `random` and `none` options.
 - **TLS-aware**: `cs` and `fm` are only added when the config uses `tls` security. Clear a field to skip that parameter.
 - **One-click Copy**: Copy the enhanced URL straight to the clipboard.
