@@ -94,22 +94,32 @@
 
     // ===== Base64 Helpers =====
     function safeAtob(str) {
+        if (!str) return null;
         try {
-            const padded = str.replace(/-/g, '+').replace(/_/g, '/');
+            const clean = str.trim().replace(/\s+/g, '');
+            if (!/^[A-Za-z0-9+/=_-]+$/.test(clean)) return null;
+            const padded = clean.replace(/-/g, '+').replace(/_/g, '/');
             const pad = padded.length % 4;
+            if (pad === 1) return null;
             const final = pad ? padded + '='.repeat(4 - pad) : padded;
-            return decodeURIComponent(
+            const decoded = decodeURIComponent(
                 atob(final)
                     .split('')
                     .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
                     .join('')
             );
+            return decoded;
         } catch {
             try {
-                const padded = str.replace(/-/g, '+').replace(/_/g, '/');
+                const clean = str.trim().replace(/\s+/g, '');
+                if (!/^[A-Za-z0-9+/=_-]+$/.test(clean)) return null;
+                const padded = clean.replace(/-/g, '+').replace(/_/g, '/');
                 const pad = padded.length % 4;
+                if (pad === 1) return null;
                 const final = pad ? padded + '='.repeat(4 - pad) : padded;
-                return atob(final);
+                const raw = atob(final);
+                if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(raw)) return null;
+                return raw;
             } catch {
                 return null;
             }
@@ -129,17 +139,27 @@
         const url = raw.trim();
         if (!url) return null;
 
-        if (url.startsWith('vless://')) return parseVless(url);
-        if (url.startsWith('vmess://')) return parseVmess(url);
-        if (url.startsWith('trojan://')) return parseTrojan(url);
-        if (url.startsWith('ss://')) return parseShadowsocks(url);
-        if (url.startsWith('socks://') || url.startsWith('socks5://')) return parseSocks(url);
-        if (url.startsWith('http://') || url.startsWith('https://')) return parseHttp(url);
+        const lower = url.toLowerCase();
+        if (lower.startsWith('vless://')) return parseVless(url);
+        if (lower.startsWith('vmess://')) return parseVmess(url);
+        if (lower.startsWith('trojan://')) return parseTrojan(url);
+        if (lower.startsWith('ss://')) return parseShadowsocks(url);
+        if (lower.startsWith('tg://socks') || lower.startsWith('tg://socks5') || lower.startsWith('https://t.me/socks') || lower.startsWith('http://t.me/socks') || lower.startsWith('socks://') || lower.startsWith('socks5://') || lower.startsWith('socks4://') || lower.startsWith('socks4a://')) return parseSocks(url);
+        if (lower.startsWith('http://') || lower.startsWith('https://')) return parseHttp(url);
 
         try {
             const decoded = safeAtob(url);
-            if (decoded && decoded.includes('"add"')) {
-                return parseVmess('vmess://' + url);
+            if (decoded) {
+                if (decoded.includes('"add"')) {
+                    return parseVmess('vmess://' + url);
+                }
+                const decodedLower = decoded.toLowerCase();
+                if (decodedLower.startsWith('vless://') || decodedLower.startsWith('vmess://') || decodedLower.startsWith('trojan://') || decodedLower.startsWith('ss://') || decodedLower.startsWith('socks://') || decodedLower.startsWith('socks5://') || decodedLower.startsWith('socks4://') || decodedLower.startsWith('http://') || decodedLower.startsWith('https://') || decodedLower.startsWith('tg://')) {
+                    return parseProxyURLSingle(decoded);
+                }
+                if (decoded.includes('@') && decoded.includes(':')) {
+                    return parseSocks('socks5://' + decoded);
+                }
             }
         } catch { }
 
@@ -329,29 +349,131 @@
 
     function parseSocks(url) {
         try {
-            const u = new URL(url.replace('socks5://', 'socks://').replace('socks://', 'http://'));
-            let user, pass;
+            let target = url.trim();
+            let remark = '';
+            let user, pass, server, port;
 
-            if (u.username) {
-                const decoded = safeAtob(u.username);
-                if (decoded && decoded.includes(':')) {
-                    [user, pass] = decoded.split(':');
-                } else if (decoded) {
-                    user = decoded;
-                    pass = u.password ? (safeAtob(u.password) || u.password) : undefined;
-                } else {
-                    user = decodeURIComponent(u.username);
-                    pass = u.password ? decodeURIComponent(u.password) : undefined;
+            const lower = target.toLowerCase();
+            if (lower.startsWith('tg://socks') || lower.startsWith('tg://socks5') || lower.startsWith('https://t.me/socks') || lower.startsWith('http://t.me/socks')) {
+                const u = new URL(target.startsWith('tg://') ? target.replace(/^tg:\/\/(socks5|socks)\?/i, 'http://localhost/?') : target);
+                server = u.searchParams.get('server') || u.searchParams.get('host') || u.searchParams.get('ip') || '';
+                port = parseInt(u.searchParams.get('port')) || 1080;
+                user = u.searchParams.get('user') || u.searchParams.get('username') || undefined;
+                pass = u.searchParams.get('pass') || u.searchParams.get('password') || undefined;
+                remark = decodeURIComponent(u.hash.slice(1) || u.searchParams.get('remark') || '');
+
+                if (!server) return { error: 'Failed to parse Telegram SOCKS URL: missing server' };
+                return {
+                    protocol: 'socks',
+                    server: server,
+                    port: port,
+                    user: user || undefined,
+                    pass: pass || undefined,
+                    remark: remark
+                };
+            }
+
+            let body = target.replace(/^(socks5:\/\/|socks:\/\/|socks4:\/\/|socks4a:\/\/)/i, '');
+
+            const hashIdx = body.indexOf('#');
+            if (hashIdx !== -1) {
+                remark = decodeURIComponent(body.slice(hashIdx + 1));
+                body = body.slice(0, hashIdx);
+            }
+
+            if (!body.includes('@')) {
+                const decodedBody = safeAtob(body);
+                if (decodedBody && (decodedBody.includes(':') || decodedBody.includes('@'))) {
+                    if (!remark && decodedBody.includes('#')) {
+                        const dHashIdx = decodedBody.indexOf('#');
+                        remark = decodeURIComponent(decodedBody.slice(dHashIdx + 1));
+                        body = decodedBody.slice(0, dHashIdx);
+                    } else {
+                        body = decodedBody;
+                    }
                 }
             }
 
+            let userPart = '';
+            let hostPart = body;
+
+            if (body.includes('@')) {
+                const atIdx = body.lastIndexOf('@');
+                userPart = body.slice(0, atIdx);
+                hostPart = body.slice(atIdx + 1);
+            }
+
+            if (userPart) {
+                if (userPart.includes(':')) {
+                    const colonIdx = userPart.indexOf(':');
+                    user = decodeURIComponent(userPart.slice(0, colonIdx));
+                    pass = decodeURIComponent(userPart.slice(colonIdx + 1));
+                } else {
+                    const decodedUser = safeAtob(userPart);
+                    if (decodedUser && decodedUser.includes(':')) {
+                        const colonIdx = decodedUser.indexOf(':');
+                        user = decodedUser.slice(0, colonIdx);
+                        pass = decodedUser.slice(colonIdx + 1);
+                    } else {
+                        user = decodeURIComponent(userPart);
+                    }
+                }
+            }
+
+            let searchParams = null;
+            if (hostPart.includes('?')) {
+                const qIdx = hostPart.indexOf('?');
+                try {
+                    searchParams = new URLSearchParams(hostPart.slice(qIdx + 1));
+                } catch { }
+                hostPart = hostPart.slice(0, qIdx);
+            }
+            hostPart = hostPart.replace(/\/+$/, '');
+
+            if (hostPart.startsWith('[')) {
+                const closeBracket = hostPart.indexOf(']');
+                if (closeBracket !== -1) {
+                    server = hostPart.slice(1, closeBracket);
+                    const portPart = hostPart.slice(closeBracket + 1);
+                    if (portPart.startsWith(':')) {
+                        port = parseInt(portPart.slice(1)) || 1080;
+                    } else {
+                        port = 1080;
+                    }
+                } else {
+                    server = hostPart;
+                    port = 1080;
+                }
+            } else if (hostPart.includes(':')) {
+                const lastColon = hostPart.lastIndexOf(':');
+                server = hostPart.slice(0, lastColon);
+                port = parseInt(hostPart.slice(lastColon + 1)) || 1080;
+            } else {
+                server = hostPart;
+                port = 1080;
+            }
+
+            if (searchParams) {
+                if (!user && (searchParams.get('user') || searchParams.get('username'))) {
+                    user = searchParams.get('user') || searchParams.get('username');
+                }
+                if (!pass && (searchParams.get('pass') || searchParams.get('password'))) {
+                    pass = searchParams.get('pass') || searchParams.get('password');
+                }
+                if (!remark && searchParams.get('remark')) {
+                    remark = searchParams.get('remark');
+                }
+            }
+
+            if (!server) return { error: 'Failed to parse SOCKS URL: missing server' };
+
             return {
                 protocol: 'socks',
-                server: u.hostname,
-                port: parseInt(u.port) || 1080,
+                server: server,
+                port: port,
                 user: user || undefined,
                 pass: pass || undefined,
-                remark: decodeURIComponent(u.hash.slice(1) || '')
+                remark: remark
             };
         } catch (e) {
             return { error: 'Failed to parse SOCKS URL: ' + e.message };
@@ -360,29 +482,131 @@
 
     function parseHttp(url) {
         try {
-            const u = new URL(url);
-            let user, pass;
+            let target = url.trim();
+            let remark = '';
+            let user, pass, server, port;
 
-            if (u.username) {
-                const decoded = safeAtob(u.username);
-                if (decoded && decoded.includes(':')) {
-                    [user, pass] = decoded.split(':');
-                } else if (decoded) {
-                    user = decoded;
-                    pass = u.password ? (safeAtob(u.password) || u.password) : undefined;
-                } else {
-                    user = decodeURIComponent(u.username);
-                    pass = u.password ? decodeURIComponent(u.password) : undefined;
+            const lower = target.toLowerCase();
+            if (lower.startsWith('tg://http') || lower.startsWith('https://t.me/http') || lower.startsWith('http://t.me/http')) {
+                const u = new URL(target.startsWith('tg://') ? target.replace(/^tg:\/\/http\?/i, 'http://localhost/?') : target);
+                server = u.searchParams.get('server') || u.searchParams.get('host') || u.searchParams.get('ip') || '';
+                port = parseInt(u.searchParams.get('port')) || 80;
+                user = u.searchParams.get('user') || u.searchParams.get('username') || undefined;
+                pass = u.searchParams.get('pass') || u.searchParams.get('password') || undefined;
+                remark = decodeURIComponent(u.hash.slice(1) || u.searchParams.get('remark') || '');
+
+                if (!server) return { error: 'Failed to parse HTTP URL: missing server' };
+                return {
+                    protocol: 'http',
+                    server: server,
+                    port: port,
+                    user: user || undefined,
+                    pass: pass || undefined,
+                    remark: remark
+                };
+            }
+
+            let body = target.replace(/^(https:\/\/|http:\/\/)/i, '');
+
+            const hashIdx = body.indexOf('#');
+            if (hashIdx !== -1) {
+                remark = decodeURIComponent(body.slice(hashIdx + 1));
+                body = body.slice(0, hashIdx);
+            }
+
+            if (!body.includes('@')) {
+                const decodedBody = safeAtob(body);
+                if (decodedBody && (decodedBody.includes(':') || decodedBody.includes('@'))) {
+                    if (!remark && decodedBody.includes('#')) {
+                        const dHashIdx = decodedBody.indexOf('#');
+                        remark = decodeURIComponent(decodedBody.slice(dHashIdx + 1));
+                        body = decodedBody.slice(0, dHashIdx);
+                    } else {
+                        body = decodedBody;
+                    }
                 }
             }
 
+            let userPart = '';
+            let hostPart = body;
+
+            if (body.includes('@')) {
+                const atIdx = body.lastIndexOf('@');
+                userPart = body.slice(0, atIdx);
+                hostPart = body.slice(atIdx + 1);
+            }
+
+            if (userPart) {
+                if (userPart.includes(':')) {
+                    const colonIdx = userPart.indexOf(':');
+                    user = decodeURIComponent(userPart.slice(0, colonIdx));
+                    pass = decodeURIComponent(userPart.slice(colonIdx + 1));
+                } else {
+                    const decodedUser = safeAtob(userPart);
+                    if (decodedUser && decodedUser.includes(':')) {
+                        const colonIdx = decodedUser.indexOf(':');
+                        user = decodedUser.slice(0, colonIdx);
+                        pass = decodedUser.slice(colonIdx + 1);
+                    } else {
+                        user = decodeURIComponent(userPart);
+                    }
+                }
+            }
+
+            let searchParams = null;
+            if (hostPart.includes('?')) {
+                const qIdx = hostPart.indexOf('?');
+                try {
+                    searchParams = new URLSearchParams(hostPart.slice(qIdx + 1));
+                } catch { }
+                hostPart = hostPart.slice(0, qIdx);
+            }
+            hostPart = hostPart.replace(/\/+$/, '');
+
+            if (hostPart.startsWith('[')) {
+                const closeBracket = hostPart.indexOf(']');
+                if (closeBracket !== -1) {
+                    server = hostPart.slice(1, closeBracket);
+                    const portPart = hostPart.slice(closeBracket + 1);
+                    if (portPart.startsWith(':')) {
+                        port = parseInt(portPart.slice(1)) || 80;
+                    } else {
+                        port = 80;
+                    }
+                } else {
+                    server = hostPart;
+                    port = 80;
+                }
+            } else if (hostPart.includes(':')) {
+                const lastColon = hostPart.lastIndexOf(':');
+                server = hostPart.slice(0, lastColon);
+                port = parseInt(hostPart.slice(lastColon + 1)) || 80;
+            } else {
+                server = hostPart;
+                port = 80;
+            }
+
+            if (searchParams) {
+                if (!user && (searchParams.get('user') || searchParams.get('username'))) {
+                    user = searchParams.get('user') || searchParams.get('username');
+                }
+                if (!pass && (searchParams.get('pass') || searchParams.get('password'))) {
+                    pass = searchParams.get('pass') || searchParams.get('password');
+                }
+                if (!remark && searchParams.get('remark')) {
+                    remark = searchParams.get('remark');
+                }
+            }
+
+            if (!server) return { error: 'Failed to parse HTTP URL: missing server' };
+
             return {
                 protocol: 'http',
-                server: u.hostname,
-                port: parseInt(u.port) || 80,
+                server: server,
+                port: port,
                 user: user || undefined,
                 pass: pass || undefined,
-                remark: decodeURIComponent(u.hash.slice(1) || '')
+                remark: remark
             };
         } catch (e) {
             return { error: 'Failed to parse HTTP URL: ' + e.message };
@@ -729,10 +953,10 @@
                         port: params.port
                     }]
                 };
-                if (params.user && params.pass) {
+                if (params.user) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
-                        pass: params.pass
+                        pass: params.pass || ''
                     }];
                 }
                 break;
@@ -744,10 +968,10 @@
                         port: params.port
                     }]
                 };
-                if (params.user && params.pass) {
+                if (params.user) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
-                        pass: params.pass
+                        pass: params.pass || ''
                     }];
                 }
                 break;
@@ -823,10 +1047,10 @@
                         port: params.port
                     }]
                 };
-                if (params.user && params.pass) {
+                if (params.user) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
-                        pass: params.pass
+                        pass: params.pass || ''
                     }];
                 }
                 break;
@@ -838,10 +1062,10 @@
                         port: params.port
                     }]
                 };
-                if (params.user && params.pass) {
+                if (params.user) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
-                        pass: params.pass
+                        pass: params.pass || ''
                     }];
                 }
                 break;
@@ -1490,7 +1714,8 @@
         rows.push(['Port', params.port]);
 
         if (params.uuid) rows.push(['UUID', params.uuid]);
-        if (params.password) rows.push(['Password', maskString(params.password)]);
+        const passVal = params.password || params.pass;
+        if (passVal) rows.push(['Password', maskString(passVal)]);
         if (params.method) rows.push(['Method', params.method]);
         if (params.user) rows.push(['User', params.user]);
         if (params.type && params.type !== 'tcp') rows.push(['Transport', params.type]);
