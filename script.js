@@ -94,25 +94,45 @@
 
     // ===== Base64 Helpers =====
     function safeAtob(str) {
+        if (!str) return null;
         try {
-            const padded = str.replace(/-/g, '+').replace(/_/g, '/');
+            const clean = str.trim().replace(/\s+/g, '');
+            if (!/^[A-Za-z0-9+/=_-]+$/.test(clean)) return null;
+            const padded = clean.replace(/-/g, '+').replace(/_/g, '/');
             const pad = padded.length % 4;
+            if (pad === 1) return null;
             const final = pad ? padded + '='.repeat(4 - pad) : padded;
-            return decodeURIComponent(
+            const decoded = decodeURIComponent(
                 atob(final)
                     .split('')
                     .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
                     .join('')
             );
+            return decoded;
         } catch {
             try {
-                const padded = str.replace(/-/g, '+').replace(/_/g, '/');
+                const clean = str.trim().replace(/\s+/g, '');
+                if (!/^[A-Za-z0-9+/=_-]+$/.test(clean)) return null;
+                const padded = clean.replace(/-/g, '+').replace(/_/g, '/');
                 const pad = padded.length % 4;
+                if (pad === 1) return null;
                 const final = pad ? padded + '='.repeat(4 - pad) : padded;
-                return atob(final);
+                const raw = atob(final);
+                if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(raw)) return null;
+                return raw;
             } catch {
                 return null;
             }
+        }
+    }
+
+    // Safe wrapper around decodeURIComponent: returns the raw string
+    // instead of throwing on malformed percent-encoding.
+    function safeDecode(str) {
+        try {
+            return decodeURIComponent(str);
+        } catch {
+            return str;
         }
     }
 
@@ -129,21 +149,36 @@
         const url = raw.trim();
         if (!url) return null;
 
-        if (url.startsWith('vless://')) return parseVless(url);
-        if (url.startsWith('vmess://')) return parseVmess(url);
-        if (url.startsWith('trojan://')) return parseTrojan(url);
-        if (url.startsWith('ss://')) return parseShadowsocks(url);
-        if (url.startsWith('socks://') || url.startsWith('socks5://')) return parseSocks(url);
-        if (url.startsWith('http://') || url.startsWith('https://')) return parseHttp(url);
+        const lower = url.toLowerCase();
+        if (lower.startsWith('vless://')) return parseVless(url);
+        if (lower.startsWith('vmess://')) return parseVmess(url);
+        if (lower.startsWith('trojan://')) return parseTrojan(url);
+        if (lower.startsWith('ss://')) return parseShadowsocks(url);
+        // Note: socks4/socks4a are intentionally not routed here. Xray outbound
+        // only supports SOCKS5 and this app always emits version 5 for sing-box,
+        // so accepting socks4 input would silently misrepresent the protocol.
+        if (lower.startsWith('tg://socks') || lower.startsWith('tg://socks5') || lower.startsWith('https://t.me/socks') || lower.startsWith('http://t.me/socks') || lower.startsWith('socks://') || lower.startsWith('socks5://')) return parseSocks(url);
+        if (lower.startsWith('http://') || lower.startsWith('https://')) return parseHttp(url);
 
         try {
             const decoded = safeAtob(url);
-            if (decoded && decoded.includes('"add"')) {
-                return parseVmess('vmess://' + url);
+            if (decoded) {
+                if (decoded.includes('"add"')) {
+                    return parseVmess('vmess://' + url);
+                }
+                const decodedLower = decoded.toLowerCase();
+                if (decodedLower.startsWith('vless://') || decodedLower.startsWith('vmess://') || decodedLower.startsWith('trojan://') || decodedLower.startsWith('ss://') || decodedLower.startsWith('socks://') || decodedLower.startsWith('socks5://') || decodedLower.startsWith('http://') || decodedLower.startsWith('https://') || decodedLower.startsWith('tg://')) {
+                    return parseProxyURLSingle(decoded);
+                }
+                if (decoded.includes('@') && decoded.includes(':')) {
+                    return parseSocks('socks5://' + decoded);
+                }
             }
         } catch { }
 
-        return { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks, http' };
+        // Note: socks4/socks4a links fall through to this error on purpose.
+        // Only SOCKS5 is supported (Xray outbound is SOCKS5-only).
+        return { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks (socks5 only), http' };
     }
 
     function parseProxyURL(raw) {
@@ -156,7 +191,7 @@
         if (validList.length > 0) {
             return validList;
         }
-        return parsedList[0] || { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks, http' };
+        return parsedList[0] || { error: 'Unknown protocol. Supported: vless, vmess, trojan, ss, socks (socks5 only), http' };
     }
 
     // ===== SSH Parser (reads from form fields) =====
@@ -185,10 +220,10 @@
             const params = Object.fromEntries(u.searchParams);
             return {
                 protocol: 'vless',
-                uuid: u.username || decodeURIComponent(url.split('://')[1].split('@')[0]),
+                uuid: u.username || safeDecode(url.split('://')[1].split('@')[0]),
                 server: u.hostname,
                 port: parseInt(u.port) || 443,
-                remark: decodeURIComponent(u.hash.slice(1) || ''),
+                remark: safeDecode(u.hash.slice(1) || ''),
                 type: params.type || 'tcp',
                 headerType: params.headerType || 'none',
                 host: params.host || undefined,
@@ -217,7 +252,8 @@
 
     function parseVmess(url) {
         try {
-            const b64 = url.replace('vmess://', '');
+            // Case-insensitive scheme strip: the router already accepts VMESS://
+            const b64 = url.replace(/^vmess:\/\//i, '');
             const decoded = safeAtob(b64);
             if (!decoded) return { error: 'Failed to decode VMess base64' };
             const config = JSON.parse(decoded);
@@ -251,10 +287,10 @@
             const params = Object.fromEntries(u.searchParams);
             return {
                 protocol: 'trojan',
-                password: decodeURIComponent(u.username || url.split('://')[1].split('@')[0]),
+                password: safeDecode(u.username || url.split('://')[1].split('@')[0]),
                 server: u.hostname,
                 port: parseInt(u.port) || 443,
-                remark: decodeURIComponent(u.hash.slice(1) || ''),
+                remark: safeDecode(u.hash.slice(1) || ''),
                 type: params.type || 'tcp',
                 headerType: params.headerType || 'none',
                 host: params.host || undefined,
@@ -279,11 +315,12 @@
 
     function parseShadowsocks(url) {
         try {
-            let raw = url.replace('ss://', '');
+            // Case-insensitive scheme strip: the router already accepts SS://
+            let raw = url.replace(/^ss:\/\//i, '');
             const hashIdx = raw.indexOf('#');
             let remark = '';
             if (hashIdx !== -1) {
-                remark = decodeURIComponent(raw.slice(hashIdx + 1));
+                remark = safeDecode(raw.slice(hashIdx + 1));
                 raw = raw.slice(0, hashIdx);
             }
 
@@ -329,29 +366,139 @@
 
     function parseSocks(url) {
         try {
-            const u = new URL(url.replace('socks5://', 'socks://').replace('socks://', 'http://'));
-            let user, pass;
+            let target = url.trim();
+            let remark = '';
+            let user, pass, server, port;
 
-            if (u.username) {
-                const decoded = safeAtob(u.username);
-                if (decoded && decoded.includes(':')) {
-                    [user, pass] = decoded.split(':');
-                } else if (decoded) {
-                    user = decoded;
-                    pass = u.password ? (safeAtob(u.password) || u.password) : undefined;
-                } else {
-                    user = decodeURIComponent(u.username);
-                    pass = u.password ? decodeURIComponent(u.password) : undefined;
+            const lower = target.toLowerCase();
+            if (lower.startsWith('tg://socks') || lower.startsWith('tg://socks5') || lower.startsWith('https://t.me/socks') || lower.startsWith('http://t.me/socks')) {
+                // Telegram share format carries plain SOCKS5 credentials as query params.
+                // The output is still a standard SOCKS outbound, so Xray/sing-box support it.
+                const u = new URL(/^tg:\/\//i.test(target) ? target.replace(/^tg:\/\/(socks5|socks)\?/i, 'http://localhost/?') : target);
+                server = u.searchParams.get('server') || u.searchParams.get('host') || u.searchParams.get('ip') || '';
+                port = parseInt(u.searchParams.get('port')) || 1080;
+                user = u.searchParams.get('user') || u.searchParams.get('username') || undefined;
+                pass = u.searchParams.get('pass') || u.searchParams.get('password') || undefined;
+                // The hash fragment needs decoding, but query params are already
+                // decoded by URLSearchParams, so decoding them again would throw
+                // on values like "100%".
+                const tgHash = u.hash.slice(1);
+                remark = tgHash ? safeDecode(tgHash) : (u.searchParams.get('remark') || '');
+
+                if (!server) return { error: 'Failed to parse Telegram SOCKS URL: missing server' };
+                return {
+                    protocol: 'socks',
+                    server: server,
+                    port: port,
+                    user: user || undefined,
+                    pass: pass || undefined,
+                    remark: remark
+                };
+            }
+
+            // Only socks:// and socks5:// are supported here. socks4/socks4a
+            // input is rejected by the router on purpose (see above).
+            let body = target.replace(/^(socks5:\/\/|socks:\/\/)/i, '');
+
+            const hashIdx = body.indexOf('#');
+            if (hashIdx !== -1) {
+                remark = safeDecode(body.slice(hashIdx + 1));
+                body = body.slice(0, hashIdx);
+            }
+
+            if (!body.includes('@')) {
+                const decodedBody = safeAtob(body);
+                if (decodedBody && (decodedBody.includes(':') || decodedBody.includes('@'))) {
+                    if (!remark && decodedBody.includes('#')) {
+                        const dHashIdx = decodedBody.indexOf('#');
+                        remark = safeDecode(decodedBody.slice(dHashIdx + 1));
+                        body = decodedBody.slice(0, dHashIdx);
+                    } else {
+                        body = decodedBody;
+                    }
                 }
             }
 
+            let userPart = '';
+            let hostPart = body;
+
+            if (body.includes('@')) {
+                const atIdx = body.lastIndexOf('@');
+                userPart = body.slice(0, atIdx);
+                hostPart = body.slice(atIdx + 1);
+            }
+
+            if (userPart) {
+                if (userPart.includes(':')) {
+                    const colonIdx = userPart.indexOf(':');
+                    user = safeDecode(userPart.slice(0, colonIdx));
+                    pass = safeDecode(userPart.slice(colonIdx + 1));
+                } else {
+                    const decodedUser = safeAtob(userPart);
+                    if (decodedUser && decodedUser.includes(':')) {
+                        const colonIdx = decodedUser.indexOf(':');
+                        user = decodedUser.slice(0, colonIdx);
+                        pass = decodedUser.slice(colonIdx + 1);
+                    } else {
+                        user = safeDecode(userPart);
+                    }
+                }
+            }
+
+            let searchParams = null;
+            if (hostPart.includes('?')) {
+                const qIdx = hostPart.indexOf('?');
+                try {
+                    searchParams = new URLSearchParams(hostPart.slice(qIdx + 1));
+                } catch { }
+                hostPart = hostPart.slice(0, qIdx);
+            }
+            hostPart = hostPart.replace(/\/+$/, '');
+
+            if (hostPart.startsWith('[')) {
+                const closeBracket = hostPart.indexOf(']');
+                if (closeBracket !== -1) {
+                    server = hostPart.slice(1, closeBracket);
+                    const portPart = hostPart.slice(closeBracket + 1);
+                    if (portPart.startsWith(':')) {
+                        port = parseInt(portPart.slice(1)) || 1080;
+                    } else {
+                        port = 1080;
+                    }
+                } else {
+                    server = hostPart;
+                    port = 1080;
+                }
+            } else if (hostPart.includes(':')) {
+                const lastColon = hostPart.lastIndexOf(':');
+                server = hostPart.slice(0, lastColon);
+                port = parseInt(hostPart.slice(lastColon + 1)) || 1080;
+            } else {
+                server = hostPart;
+                port = 1080;
+            }
+
+            if (searchParams) {
+                if (!user && (searchParams.get('user') || searchParams.get('username'))) {
+                    user = searchParams.get('user') || searchParams.get('username');
+                }
+                if (!pass && (searchParams.get('pass') || searchParams.get('password'))) {
+                    pass = searchParams.get('pass') || searchParams.get('password');
+                }
+                if (!remark && searchParams.get('remark')) {
+                    remark = searchParams.get('remark');
+                }
+            }
+
+            if (!server) return { error: 'Failed to parse SOCKS URL: missing server' };
+
             return {
                 protocol: 'socks',
-                server: u.hostname,
-                port: parseInt(u.port) || 1080,
+                server: server,
+                port: port,
                 user: user || undefined,
                 pass: pass || undefined,
-                remark: decodeURIComponent(u.hash.slice(1) || '')
+                remark: remark
             };
         } catch (e) {
             return { error: 'Failed to parse SOCKS URL: ' + e.message };
@@ -360,29 +507,134 @@
 
     function parseHttp(url) {
         try {
-            const u = new URL(url);
-            let user, pass;
+            let target = url.trim();
+            let remark = '';
+            let user, pass, server, port;
 
-            if (u.username) {
-                const decoded = safeAtob(u.username);
-                if (decoded && decoded.includes(':')) {
-                    [user, pass] = decoded.split(':');
-                } else if (decoded) {
-                    user = decoded;
-                    pass = u.password ? (safeAtob(u.password) || u.password) : undefined;
-                } else {
-                    user = decodeURIComponent(u.username);
-                    pass = u.password ? decodeURIComponent(u.password) : undefined;
+            const lower = target.toLowerCase();
+            if (lower.startsWith('tg://http') || lower.startsWith('https://t.me/http') || lower.startsWith('http://t.me/http')) {
+                const u = new URL(/^tg:\/\//i.test(target) ? target.replace(/^tg:\/\/http\?/i, 'http://localhost/?') : target);
+                server = u.searchParams.get('server') || u.searchParams.get('host') || u.searchParams.get('ip') || '';
+                port = parseInt(u.searchParams.get('port')) || 80;
+                user = u.searchParams.get('user') || u.searchParams.get('username') || undefined;
+                pass = u.searchParams.get('pass') || u.searchParams.get('password') || undefined;
+                // Same double-decode guard as in parseSocks: hash needs decoding,
+                // query params are already decoded by URLSearchParams.
+                const tgHash = u.hash.slice(1);
+                remark = tgHash ? safeDecode(tgHash) : (u.searchParams.get('remark') || '');
+
+                if (!server) return { error: 'Failed to parse HTTP URL: missing server' };
+                return {
+                    protocol: 'http',
+                    server: server,
+                    port: port,
+                    user: user || undefined,
+                    pass: pass || undefined,
+                    remark: remark
+                };
+            }
+
+            let body = target.replace(/^(https:\/\/|http:\/\/)/i, '');
+
+            const hashIdx = body.indexOf('#');
+            if (hashIdx !== -1) {
+                remark = safeDecode(body.slice(hashIdx + 1));
+                body = body.slice(0, hashIdx);
+            }
+
+            if (!body.includes('@')) {
+                const decodedBody = safeAtob(body);
+                if (decodedBody && (decodedBody.includes(':') || decodedBody.includes('@'))) {
+                    if (!remark && decodedBody.includes('#')) {
+                        const dHashIdx = decodedBody.indexOf('#');
+                        remark = safeDecode(decodedBody.slice(dHashIdx + 1));
+                        body = decodedBody.slice(0, dHashIdx);
+                    } else {
+                        body = decodedBody;
+                    }
                 }
             }
 
+            let userPart = '';
+            let hostPart = body;
+
+            if (body.includes('@')) {
+                const atIdx = body.lastIndexOf('@');
+                userPart = body.slice(0, atIdx);
+                hostPart = body.slice(atIdx + 1);
+            }
+
+            if (userPart) {
+                if (userPart.includes(':')) {
+                    const colonIdx = userPart.indexOf(':');
+                    user = safeDecode(userPart.slice(0, colonIdx));
+                    pass = safeDecode(userPart.slice(colonIdx + 1));
+                } else {
+                    const decodedUser = safeAtob(userPart);
+                    if (decodedUser && decodedUser.includes(':')) {
+                        const colonIdx = decodedUser.indexOf(':');
+                        user = decodedUser.slice(0, colonIdx);
+                        pass = decodedUser.slice(colonIdx + 1);
+                    } else {
+                        user = safeDecode(userPart);
+                    }
+                }
+            }
+
+            let searchParams = null;
+            if (hostPart.includes('?')) {
+                const qIdx = hostPart.indexOf('?');
+                try {
+                    searchParams = new URLSearchParams(hostPart.slice(qIdx + 1));
+                } catch { }
+                hostPart = hostPart.slice(0, qIdx);
+            }
+            hostPart = hostPart.replace(/\/+$/, '');
+
+            if (hostPart.startsWith('[')) {
+                const closeBracket = hostPart.indexOf(']');
+                if (closeBracket !== -1) {
+                    server = hostPart.slice(1, closeBracket);
+                    const portPart = hostPart.slice(closeBracket + 1);
+                    if (portPart.startsWith(':')) {
+                        port = parseInt(portPart.slice(1)) || 80;
+                    } else {
+                        port = 80;
+                    }
+                } else {
+                    server = hostPart;
+                    port = 80;
+                }
+            } else if (hostPart.includes(':')) {
+                const lastColon = hostPart.lastIndexOf(':');
+                server = hostPart.slice(0, lastColon);
+                port = parseInt(hostPart.slice(lastColon + 1)) || 80;
+            } else {
+                server = hostPart;
+                port = 80;
+            }
+
+            if (searchParams) {
+                if (!user && (searchParams.get('user') || searchParams.get('username'))) {
+                    user = searchParams.get('user') || searchParams.get('username');
+                }
+                if (!pass && (searchParams.get('pass') || searchParams.get('password'))) {
+                    pass = searchParams.get('pass') || searchParams.get('password');
+                }
+                if (!remark && searchParams.get('remark')) {
+                    remark = searchParams.get('remark');
+                }
+            }
+
+            if (!server) return { error: 'Failed to parse HTTP URL: missing server' };
+
             return {
                 protocol: 'http',
-                server: u.hostname,
-                port: parseInt(u.port) || 80,
+                server: server,
+                port: port,
                 user: user || undefined,
                 pass: pass || undefined,
-                remark: decodeURIComponent(u.hash.slice(1) || '')
+                remark: remark
             };
         } catch (e) {
             return { error: 'Failed to parse HTTP URL: ' + e.message };
@@ -729,6 +981,8 @@
                         port: params.port
                     }]
                 };
+                // Xray requires both user and pass for authenticated SOCKS/HTTP.
+                // A user-only credential must not emit an empty password.
                 if (params.user && params.pass) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
@@ -744,6 +998,8 @@
                         port: params.port
                     }]
                 };
+                // Xray requires both user and pass for authenticated SOCKS/HTTP.
+                // A user-only credential must not emit an empty password.
                 if (params.user && params.pass) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
@@ -823,6 +1079,8 @@
                         port: params.port
                     }]
                 };
+                // Xray requires both user and pass for authenticated SOCKS/HTTP.
+                // A user-only credential must not emit an empty password.
                 if (params.user && params.pass) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
@@ -838,6 +1096,8 @@
                         port: params.port
                     }]
                 };
+                // Xray requires both user and pass for authenticated SOCKS/HTTP.
+                // A user-only credential must not emit an empty password.
                 if (params.user && params.pass) {
                     outbound.settings.servers[0].users = [{
                         user: params.user,
@@ -1316,13 +1576,21 @@
             case 'socks':
                 outbound.version = '5';
                 outbound.network = 'tcp';
-                if (params.user) outbound.username = params.user;
-                if (params.pass) outbound.password = params.pass;
+                // Auth credentials are only emitted when both username and
+                // password are present, same as the Xray builder above.
+                // A user-only credential would produce a broken outbound.
+                if (params.user && params.pass) {
+                    outbound.username = params.user;
+                    outbound.password = params.pass;
+                }
                 break;
 
             case 'http':
-                if (params.user) outbound.username = params.user;
-                if (params.pass) outbound.password = params.pass;
+                // Same rule as socks above: both username and password required.
+                if (params.user && params.pass) {
+                    outbound.username = params.user;
+                    outbound.password = params.pass;
+                }
                 break;
 
             case 'ssh':
@@ -1490,7 +1758,8 @@
         rows.push(['Port', params.port]);
 
         if (params.uuid) rows.push(['UUID', params.uuid]);
-        if (params.password) rows.push(['Password', maskString(params.password)]);
+        const passVal = params.password || params.pass;
+        if (passVal) rows.push(['Password', maskString(passVal)]);
         if (params.method) rows.push(['Method', params.method]);
         if (params.user) rows.push(['User', params.user]);
         if (params.type && params.type !== 'tcp') rows.push(['Transport', params.type]);
