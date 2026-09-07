@@ -80,8 +80,8 @@
 
 #### ✅ الزامات کلاینت
 <ul dir="rtl" style="direction: rtl; text-align: right;">
-  <li><b>ویندوز</b>: حتماً از نرم‌افزار <b>v2rayN</b> نسخه <b>7.24.7</b> یا بالاتر استفاده کنید.</li>
-  <li><b>اندروید</b>: از نرم‌افزار <a href="https://github.com/patterniha/PattNG">PattNG</a> یا <b>v2rayNG</b> نسخه <b>2.3.4</b> یا بالاتر استفاده کنید.</li>
+  <li><b>ویندوز</b>: حتماً از نرم‌افزار <a href="https://github.com/patterniha/PattN">PattN</a> استفاده کنید.</li>
+  <li><b>اندروید</b>: حتماً از نرم‌افزار <a href="https://github.com/patterniha/PattNG">PattNG</a> استفاده کنید.</li>
 </ul>
 
 ### 🔗 Chain Builder

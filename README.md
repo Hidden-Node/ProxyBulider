@@ -53,8 +53,8 @@ This ensures that your final outgoing IP address is that of the **Chain Proxy**,
 4. Click **"Enhance URL"** and copy the resulting link — import it into your client.
 
 #### ✅ Client Requirements
-- **Windows**: use **v2rayN** version **7.24.7** or higher.
-- **Android**: use [PattNG](https://github.com/patterniha/PattNG) or **v2rayNG** version **2.3.4** or higher.
+- **Windows**: use [PattN](https://github.com/patterniha/PattN).
+- **Android**: use [PattNG](https://github.com/patterniha/PattNG).
 
 ### 🔗 Chain Builder
 1. **Config 1**: Paste your first proxy URL (this can be a Cloudflare Worker, CDN, or any other proxy).
